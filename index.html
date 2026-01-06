@@ -1,0 +1,2640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Circuit Composer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-elevated: #22222e;
+            --border-subtle: #2a2a3a;
+            --border-medium: #3a3a4a;
+            --text-primary: #f0f0f5;
+            --text-secondary: #a0a0b0;
+            --text-muted: #606070;
+            --accent-blue: #4a9eff;
+            --accent-purple: #a855f7;
+            --accent-green: #22c55e;
+            --accent-orange: #f97316;
+            --accent-red: #ef4444;
+            --accent-cyan: #06b6d4;
+            --gate-x: #ef4444;
+            --gate-y: #22c55e;
+            --gate-z: #3b82f6;
+            --gate-h: #a855f7;
+            --gate-s: #06b6d4;
+            --gate-t: #f97316;
+            --gate-rx: #f87171;
+            --gate-ry: #4ade80;
+            --gate-rz: #60a5fa;
+            --gate-cnot: #fbbf24;
+            --gate-cz: #818cf8;
+            --gate-swap: #fb7185;
+            --gate-measure: #94a3b8;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #root {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-text span {
+            color: var(--accent-blue);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3a8eef;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-elevated);
+            border-color: var(--border-medium);
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1fb855;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Left Sidebar - Gate Palette */
+        .sidebar {
+            width: 200px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .gate-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+
+        .gate-item {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            cursor: grab;
+            transition: all 0.15s ease;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .gate-item:hover {
+            background: var(--bg-elevated);
+            border-color: var(--border-medium);
+            transform: translateY(-1px);
+        }
+
+        .gate-item:active {
+            cursor: grabbing;
+        }
+
+        .gate-item.wide {
+            grid-column: span 2;
+            aspect-ratio: 2/1;
+        }
+
+        .gate-item .gate-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 400;
+        }
+
+        /* Circuit Editor Area */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding-right: 12px;
+            border-right: 1px solid var(--border-subtle);
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .toolbar-btn.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .zoom-display {
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .circuit-canvas-container {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            background: var(--bg-primary);
+            background-image: 
+                radial-gradient(circle at 1px 1px, var(--border-subtle) 1px, transparent 0);
+            background-size: 20px 20px;
+        }
+
+        .circuit-canvas {
+            position: relative;
+            min-width: 100%;
+            min-height: 100%;
+        }
+
+        /* Circuit Grid */
+        .circuit-grid {
+            position: absolute;
+            top: 60px;
+            left: 60px;
+        }
+
+        .qubit-row {
+            display: flex;
+            align-items: center;
+            height: 60px;
+            position: relative;
+        }
+
+        .qubit-label {
+            position: absolute;
+            left: -55px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .qubit-state {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .qubit-wire {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--border-medium);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+
+        .gate-slot {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .gate-slot.drop-target {
+            background: rgba(74, 158, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .gate-slot.drop-target::after {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border: 2px dashed var(--accent-blue);
+            border-radius: 6px;
+            opacity: 0.5;
+        }
+
+        /* Gate Display */
+        .gate {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .gate:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .gate.selected {
+            outline: 2px solid white;
+            outline-offset: 2px;
+        }
+
+        .gate-x { background: var(--gate-x); color: white; }
+        .gate-y { background: var(--gate-y); color: white; }
+        .gate-z { background: var(--gate-z); color: white; }
+        .gate-h { background: var(--gate-h); color: white; }
+        .gate-s { background: var(--gate-s); color: white; }
+        .gate-t { background: var(--gate-t); color: white; }
+        .gate-rx { background: var(--gate-rx); color: white; }
+        .gate-ry { background: var(--gate-ry); color: white; }
+        .gate-rz { background: var(--gate-rz); color: white; }
+        .gate-measure { background: var(--gate-measure); color: var(--bg-primary); }
+
+        .gate-control {
+            width: 14px;
+            height: 14px;
+            background: var(--gate-cnot);
+            border-radius: 50%;
+            border: 2px solid var(--bg-primary);
+        }
+
+        .gate-target {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--gate-cnot);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .gate-target::before,
+        .gate-target::after {
+            content: '';
+            position: absolute;
+            background: var(--gate-cnot);
+        }
+
+        .gate-target::before {
+            width: 3px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .gate-target::after {
+            width: 100%;
+            height: 3px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .gate-swap-symbol {
+            width: 24px;
+            height: 24px;
+            position: relative;
+        }
+
+        .gate-swap-symbol::before,
+        .gate-swap-symbol::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: var(--gate-swap);
+            top: 50%;
+        }
+
+        .gate-swap-symbol::before {
+            transform: translateY(-50%) rotate(45deg);
+        }
+
+        .gate-swap-symbol::after {
+            transform: translateY(-50%) rotate(-45deg);
+        }
+
+        .multi-gate-line {
+            position: absolute;
+            width: 3px;
+            background: var(--gate-cnot);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+
+        /* Right Panel - Results */
+        .results-panel {
+            width: 360px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .results-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .results-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .results-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .result-section {
+            margin-bottom: 24px;
+        }
+
+        .result-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        /* State Vector Display */
+        .state-vector {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .state-term {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .state-term:last-child {
+            border-bottom: none;
+        }
+
+        .state-amplitude {
+            color: var(--accent-cyan);
+            min-width: 120px;
+        }
+
+        .state-basis {
+            color: var(--accent-purple);
+        }
+
+        .state-prob {
+            color: var(--text-muted);
+            margin-left: auto;
+            font-size: 11px;
+        }
+
+        /* Probability Histogram */
+        .histogram {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .histogram-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .histogram-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            min-width: 60px;
+        }
+
+        .histogram-bar-wrapper {
+            flex: 1;
+            height: 20px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .histogram-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .histogram-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            min-width: 45px;
+            text-align: right;
+        }
+
+        /* Bloch Sphere */
+        .bloch-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .bloch-sphere {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .bloch-sphere canvas {
+            width: 100% !important;
+            height: 140px !important;
+            border-radius: 4px;
+        }
+
+        .bloch-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        /* Examples Menu */
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 4px;
+            min-width: 180px;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Code Display */
+        .code-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            white-space: pre;
+            color: var(--text-secondary);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .code-display .keyword {
+            color: var(--accent-purple);
+        }
+
+        .code-display .gate {
+            color: var(--accent-blue);
+            background: transparent;
+            border-radius: 0;
+            width: auto;
+            height: auto;
+            font-size: inherit;
+        }
+
+        .code-display .qubit {
+            color: var(--accent-orange);
+        }
+
+        /* Step mode indicator */
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        .step-badge {
+            padding: 2px 8px;
+            background: var(--accent-purple);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .step-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.2s ease;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-medium);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 10px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            margin-bottom: 6px;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+        }
+
+        /* Keyboard shortcuts hint */
+        .shortcuts-hint {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+            padding: 8px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            z-index: 50;
+        }
+
+        .shortcut {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .shortcut kbd {
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+        // ============================================================
+        // QUANTUM SIMULATION ENGINE
+        // ============================================================
+
+        /**
+         * Complex number class for quantum state calculations
+         */
+        class Complex {
+            constructor(real = 0, imag = 0) {
+                this.real = real;
+                this.imag = imag;
+            }
+
+            add(other) {
+                return new Complex(this.real + other.real, this.imag + other.imag);
+            }
+
+            subtract(other) {
+                return new Complex(this.real - other.real, this.imag - other.imag);
+            }
+
+            multiply(other) {
+                return new Complex(
+                    this.real * other.real - this.imag * other.imag,
+                    this.real * other.imag + this.imag * other.real
+                );
+            }
+
+            scale(scalar) {
+                return new Complex(this.real * scalar, this.imag * scalar);
+            }
+
+            conjugate() {
+                return new Complex(this.real, -this.imag);
+            }
+
+            magnitude() {
+                return Math.sqrt(this.real * this.real + this.imag * this.imag);
+            }
+
+            magnitudeSquared() {
+                return this.real * this.real + this.imag * this.imag;
+            }
+
+            toString(precision = 4) {
+                const r = this.real.toFixed(precision);
+                const i = Math.abs(this.imag).toFixed(precision);
+                if (Math.abs(this.imag) < 1e-10) return r;
+                if (Math.abs(this.real) < 1e-10) {
+                    return this.imag >= 0 ? `${i}i` : `-${i}i`;
+                }
+                return this.imag >= 0 ? `${r}+${i}i` : `${r}-${i}i`;
+            }
+        }
+
+        // Common complex numbers
+        const ZERO = new Complex(0, 0);
+        const ONE = new Complex(1, 0);
+        const I = new Complex(0, 1);
+        const SQRT2_INV = new Complex(1 / Math.sqrt(2), 0);
+
+        /**
+         * Quantum gate definitions as 2x2 or 4x4 matrices
+         */
+        const GATES = {
+            // Pauli gates
+            X: [
+                [ZERO, ONE],
+                [ONE, ZERO]
+            ],
+            Y: [
+                [ZERO, new Complex(0, -1)],
+                [I, ZERO]
+            ],
+            Z: [
+                [ONE, ZERO],
+                [ZERO, new Complex(-1, 0)]
+            ],
+            // Hadamard
+            H: [
+                [SQRT2_INV, SQRT2_INV],
+                [SQRT2_INV, SQRT2_INV.scale(-1)]
+            ],
+            // Phase gates
+            S: [
+                [ONE, ZERO],
+                [ZERO, I]
+            ],
+            T: [
+                [ONE, ZERO],
+                [ZERO, new Complex(Math.cos(Math.PI / 4), Math.sin(Math.PI / 4))]
+            ],
+            // Identity
+            I: [
+                [ONE, ZERO],
+                [ZERO, ONE]
+            ]
+        };
+
+        /**
+         * Create rotation gate matrix
+         */
+        function createRotationGate(axis, theta) {
+            const cos = Math.cos(theta / 2);
+            const sin = Math.sin(theta / 2);
+            
+            switch (axis) {
+                case 'X':
+                    return [
+                        [new Complex(cos, 0), new Complex(0, -sin)],
+                        [new Complex(0, -sin), new Complex(cos, 0)]
+                    ];
+                case 'Y':
+                    return [
+                        [new Complex(cos, 0), new Complex(-sin, 0)],
+                        [new Complex(sin, 0), new Complex(cos, 0)]
+                    ];
+                case 'Z':
+                    return [
+                        [new Complex(cos, -sin), ZERO],
+                        [ZERO, new Complex(cos, sin)]
+                    ];
+                default:
+                    return GATES.I;
+            }
+        }
+
+        /**
+         * Quantum state vector class
+         */
+        class QuantumState {
+            constructor(numQubits) {
+                this.numQubits = numQubits;
+                this.dimension = Math.pow(2, numQubits);
+                // Initialize to |0...0⟩ state
+                this.amplitudes = new Array(this.dimension).fill(null).map(() => new Complex(0, 0));
+                this.amplitudes[0] = new Complex(1, 0);
+            }
+
+            /**
+             * Apply a single-qubit gate to a specific qubit
+             */
+            applySingleQubitGate(gate, targetQubit) {
+                const newAmplitudes = new Array(this.dimension).fill(null).map(() => new Complex(0, 0));
+                
+                for (let i = 0; i < this.dimension; i++) {
+                    // Get the bit value at the target qubit position
+                    const bit = (i >> (this.numQubits - 1 - targetQubit)) & 1;
+                    // Get the index with the target bit flipped
+                    const flippedIndex = i ^ (1 << (this.numQubits - 1 - targetQubit));
+                    
+                    if (bit === 0) {
+                        // |0⟩ component
+                        newAmplitudes[i] = newAmplitudes[i].add(
+                            gate[0][0].multiply(this.amplitudes[i])
+                        ).add(
+                            gate[0][1].multiply(this.amplitudes[flippedIndex])
+                        );
+                        newAmplitudes[flippedIndex] = newAmplitudes[flippedIndex].add(
+                            gate[1][0].multiply(this.amplitudes[i])
+                        ).add(
+                            gate[1][1].multiply(this.amplitudes[flippedIndex])
+                        );
+                    }
+                }
+                
+                this.amplitudes = newAmplitudes;
+            }
+
+            /**
+             * Apply a controlled gate (CNOT, CZ)
+             */
+            applyControlledGate(gate, controlQubit, targetQubit) {
+                const newAmplitudes = [...this.amplitudes];
+                
+                for (let i = 0; i < this.dimension; i++) {
+                    const controlBit = (i >> (this.numQubits - 1 - controlQubit)) & 1;
+                    
+                    if (controlBit === 1) {
+                        const targetBit = (i >> (this.numQubits - 1 - targetQubit)) & 1;
+                        const flippedIndex = i ^ (1 << (this.numQubits - 1 - targetQubit));
+                        
+                        if (targetBit === 0 && i < flippedIndex) {
+                            const amp0 = this.amplitudes[i];
+                            const amp1 = this.amplitudes[flippedIndex];
+                            
+                            newAmplitudes[i] = gate[0][0].multiply(amp0).add(gate[0][1].multiply(amp1));
+                            newAmplitudes[flippedIndex] = gate[1][0].multiply(amp0).add(gate[1][1].multiply(amp1));
+                        }
+                    }
+                }
+                
+                this.amplitudes = newAmplitudes;
+            }
+
+            /**
+             * Apply SWAP gate
+             */
+            applySwap(qubit1, qubit2) {
+                const newAmplitudes = new Array(this.dimension).fill(null).map(() => new Complex(0, 0));
+                
+                for (let i = 0; i < this.dimension; i++) {
+                    const bit1 = (i >> (this.numQubits - 1 - qubit1)) & 1;
+                    const bit2 = (i >> (this.numQubits - 1 - qubit2)) & 1;
+                    
+                    if (bit1 !== bit2) {
+                        // Swap the bits
+                        let newIndex = i;
+                        newIndex ^= (1 << (this.numQubits - 1 - qubit1));
+                        newIndex ^= (1 << (this.numQubits - 1 - qubit2));
+                        newAmplitudes[newIndex] = this.amplitudes[i];
+                    } else {
+                        newAmplitudes[i] = this.amplitudes[i];
+                    }
+                }
+                
+                this.amplitudes = newAmplitudes;
+            }
+
+            /**
+             * Get measurement probabilities
+             */
+            getProbabilities() {
+                return this.amplitudes.map(amp => amp.magnitudeSquared());
+            }
+
+            /**
+             * Get the state of a single qubit (reduced density matrix diagonal)
+             * Returns [prob_0, prob_1]
+             */
+            getSingleQubitProbabilities(qubitIndex) {
+                let prob0 = 0;
+                let prob1 = 0;
+                
+                for (let i = 0; i < this.dimension; i++) {
+                    const bit = (i >> (this.numQubits - 1 - qubitIndex)) & 1;
+                    const prob = this.amplitudes[i].magnitudeSquared();
+                    if (bit === 0) prob0 += prob;
+                    else prob1 += prob;
+                }
+                
+                return [prob0, prob1];
+            }
+
+            /**
+             * Get Bloch sphere coordinates for a single qubit
+             * Only meaningful for separable states
+             */
+            getBlochVector(qubitIndex) {
+                // Compute reduced density matrix for the qubit
+                let rho00 = new Complex(0, 0);
+                let rho01 = new Complex(0, 0);
+                let rho10 = new Complex(0, 0);
+                let rho11 = new Complex(0, 0);
+                
+                for (let i = 0; i < this.dimension; i++) {
+                    const bit = (i >> (this.numQubits - 1 - qubitIndex)) & 1;
+                    const flippedIndex = i ^ (1 << (this.numQubits - 1 - qubitIndex));
+                    
+                    if (bit === 0) {
+                        rho00 = rho00.add(this.amplitudes[i].multiply(this.amplitudes[i].conjugate()));
+                        rho01 = rho01.add(this.amplitudes[i].multiply(this.amplitudes[flippedIndex].conjugate()));
+                    } else {
+                        rho10 = rho10.add(this.amplitudes[i].multiply(this.amplitudes[flippedIndex].conjugate()));
+                        rho11 = rho11.add(this.amplitudes[i].multiply(this.amplitudes[i].conjugate()));
+                    }
+                }
+                
+                // Bloch vector components
+                const x = 2 * rho01.real;
+                const y = 2 * rho01.imag;
+                const z = rho00.real - rho11.real;
+                
+                return { x, y, z };
+            }
+
+            /**
+             * Clone the state
+             */
+            clone() {
+                const newState = new QuantumState(this.numQubits);
+                newState.amplitudes = this.amplitudes.map(a => new Complex(a.real, a.imag));
+                return newState;
+            }
+        }
+
+        /**
+         * Quantum circuit simulator
+         */
+        class QuantumSimulator {
+            constructor(numQubits) {
+                this.numQubits = numQubits;
+                this.state = new QuantumState(numQubits);
+            }
+
+            reset() {
+                this.state = new QuantumState(this.numQubits);
+            }
+
+            applyGate(gateType, targets, params = {}) {
+                switch (gateType) {
+                    case 'X':
+                    case 'Y':
+                    case 'Z':
+                    case 'H':
+                    case 'S':
+                    case 'T':
+                        this.state.applySingleQubitGate(GATES[gateType], targets[0]);
+                        break;
+                    case 'Rx':
+                        this.state.applySingleQubitGate(
+                            createRotationGate('X', params.theta || 0),
+                            targets[0]
+                        );
+                        break;
+                    case 'Ry':
+                        this.state.applySingleQubitGate(
+                            createRotationGate('Y', params.theta || 0),
+                            targets[0]
+                        );
+                        break;
+                    case 'Rz':
+                        this.state.applySingleQubitGate(
+                            createRotationGate('Z', params.theta || 0),
+                            targets[0]
+                        );
+                        break;
+                    case 'CNOT':
+                        this.state.applyControlledGate(GATES.X, targets[0], targets[1]);
+                        break;
+                    case 'CZ':
+                        this.state.applyControlledGate(GATES.Z, targets[0], targets[1]);
+                        break;
+                    case 'SWAP':
+                        this.state.applySwap(targets[0], targets[1]);
+                        break;
+                }
+            }
+
+            getState() {
+                return this.state;
+            }
+
+            getProbabilities() {
+                return this.state.getProbabilities();
+            }
+
+            getBlochVectors() {
+                return Array.from({ length: this.numQubits }, (_, i) => 
+                    this.state.getBlochVector(i)
+                );
+            }
+        }
+
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+
+        /**
+         * Convert basis state index to binary string
+         */
+        function indexToBinary(index, numQubits) {
+            return index.toString(2).padStart(numQubits, '0');
+        }
+
+        /**
+         * Format complex amplitude for display
+         */
+        function formatAmplitude(amp, precision = 3) {
+            const r = amp.real;
+            const i = amp.imag;
+            
+            if (Math.abs(r) < 1e-10 && Math.abs(i) < 1e-10) return '0';
+            if (Math.abs(i) < 1e-10) return r.toFixed(precision);
+            if (Math.abs(r) < 1e-10) {
+                const sign = i >= 0 ? '' : '-';
+                return `${sign}${Math.abs(i).toFixed(precision)}i`;
+            }
+            const sign = i >= 0 ? '+' : '-';
+            return `${r.toFixed(precision)}${sign}${Math.abs(i).toFixed(precision)}i`;
+        }
+
+        /**
+         * Generate OpenQASM 2.0 code from circuit
+         */
+        function generateOpenQASM(circuit, numQubits) {
+            let qasm = 'OPENQASM 2.0;\n';
+            qasm += 'include "qelib1.inc";\n\n';
+            qasm += `qreg q[${numQubits}];\n`;
+            qasm += `creg c[${numQubits}];\n\n`;
+
+            // Get all time steps
+            const maxStep = Math.max(...circuit.map(g => g.step), 0);
+            
+            for (let step = 0; step <= maxStep; step++) {
+                const gatesAtStep = circuit.filter(g => g.step === step);
+                for (const gate of gatesAtStep) {
+                    switch (gate.type) {
+                        case 'X':
+                        case 'Y':
+                        case 'Z':
+                        case 'H':
+                        case 'S':
+                        case 'T':
+                            qasm += `${gate.type.toLowerCase()} q[${gate.targets[0]}];\n`;
+                            break;
+                        case 'Rx':
+                            qasm += `rx(${gate.params?.theta || 0}) q[${gate.targets[0]}];\n`;
+                            break;
+                        case 'Ry':
+                            qasm += `ry(${gate.params?.theta || 0}) q[${gate.targets[0]}];\n`;
+                            break;
+                        case 'Rz':
+                            qasm += `rz(${gate.params?.theta || 0}) q[${gate.targets[0]}];\n`;
+                            break;
+                        case 'CNOT':
+                            qasm += `cx q[${gate.targets[0]}], q[${gate.targets[1]}];\n`;
+                            break;
+                        case 'CZ':
+                            qasm += `cz q[${gate.targets[0]}], q[${gate.targets[1]}];\n`;
+                            break;
+                        case 'SWAP':
+                            qasm += `swap q[${gate.targets[0]}], q[${gate.targets[1]}];\n`;
+                            break;
+                        case 'MEASURE':
+                            qasm += `measure q[${gate.targets[0]}] -> c[${gate.targets[0]}];\n`;
+                            break;
+                    }
+                }
+            }
+
+            return qasm;
+        }
+
+        /**
+         * Example circuits
+         */
+        const EXAMPLE_CIRCUITS = {
+            bell: {
+                name: 'Bell State',
+                numQubits: 2,
+                gates: [
+                    { id: '1', type: 'H', step: 0, targets: [0] },
+                    { id: '2', type: 'CNOT', step: 1, targets: [0, 1] }
+                ]
+            },
+            ghz3: {
+                name: 'GHZ State (3 qubits)',
+                numQubits: 3,
+                gates: [
+                    { id: '1', type: 'H', step: 0, targets: [0] },
+                    { id: '2', type: 'CNOT', step: 1, targets: [0, 1] },
+                    { id: '3', type: 'CNOT', step: 2, targets: [1, 2] }
+                ]
+            },
+            superposition: {
+                name: 'Equal Superposition',
+                numQubits: 3,
+                gates: [
+                    { id: '1', type: 'H', step: 0, targets: [0] },
+                    { id: '2', type: 'H', step: 0, targets: [1] },
+                    { id: '3', type: 'H', step: 0, targets: [2] }
+                ]
+            },
+            teleportation: {
+                name: 'Quantum Teleportation Setup',
+                numQubits: 3,
+                gates: [
+                    { id: '1', type: 'H', step: 0, targets: [1] },
+                    { id: '2', type: 'CNOT', step: 1, targets: [1, 2] },
+                    { id: '3', type: 'CNOT', step: 2, targets: [0, 1] },
+                    { id: '4', type: 'H', step: 3, targets: [0] }
+                ]
+            },
+            phase: {
+                name: 'Phase Kickback',
+                numQubits: 2,
+                gates: [
+                    { id: '1', type: 'X', step: 0, targets: [1] },
+                    { id: '2', type: 'H', step: 1, targets: [0] },
+                    { id: '3', type: 'H', step: 1, targets: [1] },
+                    { id: '4', type: 'CNOT', step: 2, targets: [0, 1] },
+                    { id: '5', type: 'H', step: 3, targets: [0] }
+                ]
+            }
+        };
+
+        // ============================================================
+        // REACT COMPONENTS
+        // ============================================================
+
+        /**
+         * SVG Icons
+         */
+        const Icons = {
+            Play: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" />
+                </svg>
+            ),
+            StepForward: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="5 4 15 12 5 20 5 4" />
+                    <line x1="19" y1="5" x2="19" y2="19" />
+                </svg>
+            ),
+            Reset: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
+                </svg>
+            ),
+            Plus: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+            ),
+            Minus: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+            ),
+            ZoomIn: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="11" y1="8" x2="11" y2="14" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+            ),
+            ZoomOut: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+            ),
+            Trash: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+            ),
+            Download: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+            ),
+            Upload: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+            ),
+            ChevronDown: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            ),
+            X: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            ),
+            Code: () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                </svg>
+            ),
+            Atom: () => (
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="12" cy="12" r="2" fill="currentColor" />
+                    <ellipse cx="12" cy="12" rx="10" ry="4" />
+                    <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
+                    <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-60 12 12)" />
+                </svg>
+            )
+        };
+
+        /**
+         * Gate palette component - shows available gates for drag-and-drop
+         */
+        function GatePalette({ onDragStart }) {
+            const singleQubitGates = [
+                { type: 'H', label: 'Hadamard' },
+                { type: 'X', label: 'Pauli-X' },
+                { type: 'Y', label: 'Pauli-Y' },
+                { type: 'Z', label: 'Pauli-Z' },
+                { type: 'S', label: 'S Gate' },
+                { type: 'T', label: 'T Gate' },
+                { type: 'Rx', label: 'Rotate X' },
+                { type: 'Ry', label: 'Rotate Y' },
+                { type: 'Rz', label: 'Rotate Z' }
+            ];
+
+            const multiQubitGates = [
+                { type: 'CNOT', label: 'CNOT' },
+                { type: 'CZ', label: 'CZ' },
+                { type: 'SWAP', label: 'SWAP' }
+            ];
+
+            const measurementGates = [
+                { type: 'MEASURE', label: 'Measure' }
+            ];
+
+            const handleDragStart = (e, gateType) => {
+                e.dataTransfer.setData('gateType', gateType);
+                e.dataTransfer.effectAllowed = 'copy';
+                onDragStart && onDragStart(gateType);
+            };
+
+            return (
+                <div className="sidebar">
+                    <div className="sidebar-section">
+                        <div className="sidebar-title">Single Qubit Gates</div>
+                        <div className="gate-grid">
+                            {singleQubitGates.map(gate => (
+                                <div
+                                    key={gate.type}
+                                    className="gate-item"
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, gate.type)}
+                                    style={{ color: `var(--gate-${gate.type.toLowerCase()})` }}
+                                >
+                                    {gate.type}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="sidebar-section">
+                        <div className="sidebar-title">Multi-Qubit Gates</div>
+                        <div className="gate-grid">
+                            {multiQubitGates.map(gate => (
+                                <div
+                                    key={gate.type}
+                                    className="gate-item"
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, gate.type)}
+                                    style={{ color: `var(--gate-${gate.type.toLowerCase()})` }}
+                                >
+                                    {gate.type}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="sidebar-section">
+                        <div className="sidebar-title">Measurement</div>
+                        <div className="gate-grid">
+                            {measurementGates.map(gate => (
+                                <div
+                                    key={gate.type}
+                                    className="gate-item wide"
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, gate.type)}
+                                    style={{ color: `var(--gate-measure)` }}
+                                >
+                                    📊 {gate.type}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="sidebar-section">
+                        <div className="sidebar-title">Tips</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                            <p>• Drag gates onto the circuit grid</p>
+                            <p>• Click a gate to edit or delete</p>
+                            <p>• Multi-qubit gates: drop on control qubit first</p>
+                            <p>• Use keyboard: Del to delete, Esc to deselect</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /**
+         * Single gate display component
+         */
+        function GateDisplay({ gate, isSelected, onClick, qubitOffset = 0 }) {
+            const gateClass = `gate gate-${gate.type.toLowerCase()} ${isSelected ? 'selected' : ''}`;
+            
+            if (gate.type === 'CNOT' || gate.type === 'CZ') {
+                const controlQubit = gate.targets[0];
+                const targetQubit = gate.targets[1];
+                const distance = (targetQubit - controlQubit) * 60;
+                const isControlAbove = controlQubit < targetQubit;
+                
+                if (qubitOffset === controlQubit) {
+                    return (
+                        <div onClick={onClick} style={{ position: 'relative' }}>
+                            <div 
+                                className="multi-gate-line" 
+                                style={{
+                                    top: isControlAbove ? '50%' : 'auto',
+                                    bottom: isControlAbove ? 'auto' : '50%',
+                                    height: Math.abs(distance),
+                                    background: gate.type === 'CZ' ? 'var(--gate-cz)' : 'var(--gate-cnot)'
+                                }}
+                            />
+                            <div 
+                                className={`gate-control ${isSelected ? 'selected' : ''}`}
+                                style={{ 
+                                    background: gate.type === 'CZ' ? 'var(--gate-cz)' : 'var(--gate-cnot)',
+                                    width: gate.type === 'CZ' ? '14px' : '14px',
+                                    height: gate.type === 'CZ' ? '14px' : '14px'
+                                }}
+                            />
+                        </div>
+                    );
+                } else if (qubitOffset === targetQubit) {
+                    if (gate.type === 'CZ') {
+                        return (
+                            <div 
+                                className={`gate-control ${isSelected ? 'selected' : ''}`}
+                                onClick={onClick}
+                                style={{ background: 'var(--gate-cz)' }}
+                            />
+                        );
+                    }
+                    return (
+                        <div className={`gate-target ${isSelected ? 'selected' : ''}`} onClick={onClick} />
+                    );
+                }
+                return null;
+            }
+            
+            if (gate.type === 'SWAP') {
+                const qubit1 = gate.targets[0];
+                const qubit2 = gate.targets[1];
+                const distance = (qubit2 - qubit1) * 60;
+                
+                if (qubitOffset === qubit1) {
+                    return (
+                        <div onClick={onClick} style={{ position: 'relative' }}>
+                            <div 
+                                className="multi-gate-line" 
+                                style={{
+                                    top: '50%',
+                                    height: Math.abs(distance),
+                                    background: 'var(--gate-swap)'
+                                }}
+                            />
+                            <div className={`gate-swap-symbol ${isSelected ? 'selected' : ''}`} />
+                        </div>
+                    );
+                } else if (qubitOffset === qubit2) {
+                    return <div className={`gate-swap-symbol ${isSelected ? 'selected' : ''}`} onClick={onClick} />;
+                }
+                return null;
+            }
+            
+            if (gate.type === 'MEASURE') {
+                return (
+                    <div className={gateClass} onClick={onClick}>
+                        📊
+                    </div>
+                );
+            }
+
+            // Rotation gates show angle
+            const hasAngle = ['Rx', 'Ry', 'Rz'].includes(gate.type);
+            
+            return (
+                <div className={gateClass} onClick={onClick}>
+                    {gate.type}
+                    {hasAngle && gate.params?.theta !== undefined && (
+                        <div style={{ 
+                            position: 'absolute', 
+                            bottom: '-18px', 
+                            fontSize: '9px',
+                            color: 'var(--text-muted)',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {(gate.params.theta / Math.PI).toFixed(2)}π
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        /**
+         * Circuit editor grid component
+         */
+        function CircuitGrid({ 
+            numQubits, 
+            numSteps, 
+            gates, 
+            selectedGate, 
+            onSelectGate, 
+            onDropGate,
+            onDeleteGate,
+            zoom,
+            currentStep
+        }) {
+            const [dragOverSlot, setDragOverSlot] = useState(null);
+            
+            const handleDragOver = (e, qubit, step) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                setDragOverSlot({ qubit, step });
+            };
+
+            const handleDragLeave = () => {
+                setDragOverSlot(null);
+            };
+
+            const handleDrop = (e, qubit, step) => {
+                e.preventDefault();
+                const gateType = e.dataTransfer.getData('gateType');
+                if (gateType) {
+                    onDropGate(gateType, qubit, step);
+                }
+                setDragOverSlot(null);
+            };
+
+            const getGateAtPosition = (qubit, step) => {
+                return gates.find(g => {
+                    if (g.step !== step) return false;
+                    return g.targets.includes(qubit);
+                });
+            };
+
+            return (
+                <div 
+                    className="circuit-grid" 
+                    style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+                >
+                    {Array.from({ length: numQubits }, (_, qubitIndex) => (
+                        <div key={qubitIndex} className="qubit-row">
+                            <div className="qubit-label">
+                                <span>q{qubitIndex}</span>
+                                <span className="qubit-state">|0⟩</span>
+                            </div>
+                            <div className="qubit-wire" style={{ width: numSteps * 60 + 20 }} />
+                            {Array.from({ length: numSteps }, (_, stepIndex) => {
+                                const gate = getGateAtPosition(qubitIndex, stepIndex);
+                                const isDragOver = dragOverSlot?.qubit === qubitIndex && 
+                                                   dragOverSlot?.step === stepIndex;
+                                const isCurrentStep = currentStep !== null && stepIndex === currentStep;
+                                
+                                return (
+                                    <div
+                                        key={stepIndex}
+                                        className={`gate-slot ${isDragOver ? 'drop-target' : ''}`}
+                                        style={{
+                                            background: isCurrentStep ? 'rgba(168, 85, 247, 0.15)' : undefined,
+                                            borderLeft: isCurrentStep ? '2px solid var(--accent-purple)' : undefined
+                                        }}
+                                        onDragOver={(e) => handleDragOver(e, qubitIndex, stepIndex)}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => handleDrop(e, qubitIndex, stepIndex)}
+                                    >
+                                        {gate && (
+                                            <GateDisplay
+                                                gate={gate}
+                                                isSelected={selectedGate === gate.id}
+                                                onClick={() => onSelectGate(gate.id)}
+                                                qubitOffset={qubitIndex}
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        /**
+         * Bloch sphere 3D visualization using Three.js
+         */
+        function BlochSphere({ vector, qubitIndex }) {
+            const containerRef = useRef(null);
+            const sceneRef = useRef(null);
+            
+            useEffect(() => {
+                if (!containerRef.current) return;
+                
+                const width = containerRef.current.clientWidth;
+                const height = 140;
+                
+                // Scene setup
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a1a24);
+                
+                const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+                camera.position.set(2.5, 1.5, 2.5);
+                camera.lookAt(0, 0, 0);
+                
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                containerRef.current.appendChild(renderer.domElement);
+                
+                // Sphere wireframe
+                const sphereGeometry = new THREE.SphereGeometry(1, 24, 24);
+                const wireframeMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x3a3a4a,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const sphere = new THREE.Mesh(sphereGeometry, wireframeMaterial);
+                scene.add(sphere);
+                
+                // Axes
+                const axesColors = [0xef4444, 0x22c55e, 0x3b82f6]; // X, Y, Z
+                const axesLabels = ['X', 'Y', 'Z'];
+                const axesDirections = [
+                    new THREE.Vector3(1, 0, 0),
+                    new THREE.Vector3(0, 1, 0),
+                    new THREE.Vector3(0, 0, 1)
+                ];
+                
+                axesDirections.forEach((dir, i) => {
+                    const material = new THREE.LineBasicMaterial({ color: axesColors[i] });
+                    const points = [
+                        dir.clone().multiplyScalar(-1.3),
+                        dir.clone().multiplyScalar(1.3)
+                    ];
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geometry, material);
+                    scene.add(line);
+                });
+                
+                // State vector arrow
+                const arrowLength = Math.sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
+                const arrowDir = new THREE.Vector3(vector.x, vector.z, vector.y).normalize();
+                const arrowOrigin = new THREE.Vector3(0, 0, 0);
+                const arrowHelper = new THREE.ArrowHelper(
+                    arrowDir,
+                    arrowOrigin,
+                    arrowLength > 0.01 ? arrowLength : 0.01,
+                    0xa855f7,
+                    0.2,
+                    0.1
+                );
+                scene.add(arrowHelper);
+                
+                // |0⟩ and |1⟩ markers
+                const markerGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+                const marker0Material = new THREE.MeshBasicMaterial({ color: 0x4a9eff });
+                const marker1Material = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+                
+                const marker0 = new THREE.Mesh(markerGeometry, marker0Material);
+                marker0.position.set(0, 1, 0);
+                scene.add(marker0);
+                
+                const marker1 = new THREE.Mesh(markerGeometry, marker1Material);
+                marker1.position.set(0, -1, 0);
+                scene.add(marker1);
+                
+                // Render
+                renderer.render(scene, camera);
+                sceneRef.current = { scene, camera, renderer };
+                
+                return () => {
+                    if (containerRef.current && renderer.domElement) {
+                        containerRef.current.removeChild(renderer.domElement);
+                    }
+                    renderer.dispose();
+                };
+            }, [vector]);
+            
+            return (
+                <div className="bloch-sphere">
+                    <div ref={containerRef} />
+                    <div className="bloch-label">Qubit {qubitIndex}</div>
+                </div>
+            );
+        }
+
+        /**
+         * Results panel showing simulation output
+         */
+        function ResultsPanel({ 
+            state, 
+            probabilities, 
+            numQubits, 
+            blochVectors,
+            isSimulated,
+            currentStep,
+            totalSteps
+        }) {
+            // Filter non-zero amplitudes for display
+            const significantStates = useMemo(() => {
+                if (!state) return [];
+                return state.amplitudes
+                    .map((amp, idx) => ({
+                        index: idx,
+                        amplitude: amp,
+                        probability: amp.magnitudeSquared(),
+                        basis: `|${indexToBinary(idx, numQubits)}⟩`
+                    }))
+                    .filter(s => s.probability > 1e-10)
+                    .sort((a, b) => b.probability - a.probability);
+            }, [state, numQubits]);
+
+            // Filter probabilities for histogram
+            const significantProbs = useMemo(() => {
+                if (!probabilities) return [];
+                return probabilities
+                    .map((prob, idx) => ({
+                        index: idx,
+                        probability: prob,
+                        basis: indexToBinary(idx, numQubits)
+                    }))
+                    .filter(p => p.probability > 1e-10)
+                    .sort((a, b) => b.probability - a.probability)
+                    .slice(0, 16); // Limit to top 16 for display
+            }, [probabilities, numQubits]);
+
+            if (!isSimulated) {
+                return (
+                    <div className="results-panel">
+                        <div className="results-header">
+                            <span className="results-title">Simulation Results</span>
+                        </div>
+                        <div className="results-content">
+                            <div className="empty-state">
+                                <div className="empty-state-icon">⚛️</div>
+                                <div className="empty-state-text">
+                                    Add gates to your circuit and click<br />
+                                    "Run" to simulate
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="results-panel">
+                    <div className="results-header">
+                        <span className="results-title">Simulation Results</span>
+                    </div>
+                    <div className="results-content">
+                        {currentStep !== null && (
+                            <div className="step-indicator">
+                                <span className="step-badge">Step {currentStep + 1}/{totalSteps}</span>
+                                <span className="step-text">Step-by-step mode</span>
+                            </div>
+                        )}
+                        
+                        <div className="result-section">
+                            <div className="result-section-title">State Vector</div>
+                            <div className="state-vector">
+                                {significantStates.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)' }}>|0...0⟩</div>
+                                ) : (
+                                    significantStates.map((s, idx) => (
+                                        <div key={s.index} className="state-term">
+                                            <span className="state-amplitude">
+                                                {formatAmplitude(s.amplitude)}
+                                            </span>
+                                            <span className="state-basis">{s.basis}</span>
+                                            <span className="state-prob">
+                                                {(s.probability * 100).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="result-section">
+                            <div className="result-section-title">Measurement Probabilities</div>
+                            <div className="histogram">
+                                {significantProbs.map(p => (
+                                    <div key={p.index} className="histogram-bar-container">
+                                        <span className="histogram-label">|{p.basis}⟩</span>
+                                        <div className="histogram-bar-wrapper">
+                                            <div 
+                                                className="histogram-bar"
+                                                style={{ width: `${p.probability * 100}%` }}
+                                            />
+                                        </div>
+                                        <span className="histogram-value">
+                                            {(p.probability * 100).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {numQubits <= 4 && blochVectors && (
+                            <div className="result-section">
+                                <div className="result-section-title">Bloch Spheres</div>
+                                <div className="bloch-container">
+                                    {blochVectors.map((vec, idx) => (
+                                        <BlochSphere key={idx} vector={vec} qubitIndex={idx} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        /**
+         * Gate parameter edit modal
+         */
+        function GateEditModal({ gate, onSave, onDelete, onClose }) {
+            const [theta, setTheta] = useState(
+                gate.params?.theta !== undefined 
+                    ? (gate.params.theta / Math.PI).toString() 
+                    : '0'
+            );
+            
+            const hasParams = ['Rx', 'Ry', 'Rz'].includes(gate.type);
+            
+            const handleSave = () => {
+                const thetaValue = parseFloat(theta) * Math.PI;
+                onSave({ theta: thetaValue });
+            };
+            
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal animate-in" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <span className="modal-title">Edit {gate.type} Gate</span>
+                            <button className="modal-close" onClick={onClose}>
+                                <Icons.X />
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ marginBottom: '16px' }}>
+                                <strong>Gate:</strong> {gate.type}<br />
+                                <strong>Target:</strong> Qubit {gate.targets.join(', ')}
+                            </div>
+                            {hasParams && (
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        Rotation angle (θ) in multiples of π
+                                    </label>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        value={theta}
+                                        onChange={e => setTheta(e.target.value)}
+                                        step="0.25"
+                                        placeholder="e.g., 0.5 for π/2"
+                                    />
+                                    <div style={{ 
+                                        fontSize: '12px', 
+                                        color: 'var(--text-muted)', 
+                                        marginTop: '6px' 
+                                    }}>
+                                        Current: {(parseFloat(theta || 0) * Math.PI).toFixed(4)} radians
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-secondary" onClick={onDelete}>
+                                <Icons.Trash /> Delete
+                            </button>
+                            {hasParams && (
+                                <button className="btn btn-primary" onClick={handleSave}>
+                                    Save
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /**
+         * Export modal for JSON/QASM
+         */
+        function ExportModal({ circuit, numQubits, onClose }) {
+            const [format, setFormat] = useState('json');
+            
+            const jsonExport = JSON.stringify({
+                numQubits,
+                gates: circuit.map(g => ({
+                    type: g.type,
+                    targets: g.targets,
+                    step: g.step,
+                    params: g.params
+                }))
+            }, null, 2);
+            
+            const qasmExport = generateOpenQASM(circuit, numQubits);
+            
+            const handleDownload = () => {
+                const content = format === 'json' ? jsonExport : qasmExport;
+                const filename = format === 'json' ? 'circuit.json' : 'circuit.qasm';
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
+            const handleCopy = () => {
+                const content = format === 'json' ? jsonExport : qasmExport;
+                navigator.clipboard.writeText(content);
+            };
+            
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal animate-in" style={{ width: '500px' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <span className="modal-title">Export Circuit</span>
+                            <button className="modal-close" onClick={onClose}>
+                                <Icons.X />
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <label className="form-label">Format</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button 
+                                        className={`btn ${format === 'json' ? 'btn-primary' : 'btn-secondary'}`}
+                                        onClick={() => setFormat('json')}
+                                    >
+                                        JSON
+                                    </button>
+                                    <button 
+                                        className={`btn ${format === 'qasm' ? 'btn-primary' : 'btn-secondary'}`}
+                                        onClick={() => setFormat('qasm')}
+                                    >
+                                        OpenQASM
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="code-display">
+                                {format === 'json' ? jsonExport : qasmExport}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-secondary" onClick={handleCopy}>
+                                Copy
+                            </button>
+                            <button className="btn btn-primary" onClick={handleDownload}>
+                                <Icons.Download /> Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /**
+         * Main application component
+         */
+        function QuantumComposer() {
+            // Circuit state
+            const [numQubits, setNumQubits] = useState(3);
+            const [numSteps, setNumSteps] = useState(8);
+            const [gates, setGates] = useState([]);
+            const [selectedGate, setSelectedGate] = useState(null);
+            const [nextGateId, setNextGateId] = useState(1);
+            
+            // UI state
+            const [zoom, setZoom] = useState(1);
+            const [showExportModal, setShowExportModal] = useState(false);
+            const [showExamplesMenu, setShowExamplesMenu] = useState(false);
+            const [pendingMultiGate, setPendingMultiGate] = useState(null);
+            
+            // Simulation state
+            const [simulator, setSimulator] = useState(null);
+            const [simulationResult, setSimulationResult] = useState(null);
+            const [isSimulated, setIsSimulated] = useState(false);
+            const [stepMode, setStepMode] = useState(false);
+            const [currentStep, setCurrentStep] = useState(null);
+
+            // File input ref
+            const fileInputRef = useRef(null);
+
+            // Initialize simulator
+            useEffect(() => {
+                setSimulator(new QuantumSimulator(numQubits));
+            }, [numQubits]);
+
+            // Keyboard shortcuts
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        if (selectedGate) {
+                            handleDeleteGate(selectedGate);
+                        }
+                    } else if (e.key === 'Escape') {
+                        setSelectedGate(null);
+                        setPendingMultiGate(null);
+                    } else if (e.key === 'r' && e.ctrlKey) {
+                        e.preventDefault();
+                        runSimulation();
+                    }
+                };
+                
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [selectedGate, gates]);
+
+            // Add gate to circuit
+            const handleDropGate = useCallback((gateType, qubit, step) => {
+                const multiQubitGates = ['CNOT', 'CZ', 'SWAP'];
+                
+                if (multiQubitGates.includes(gateType)) {
+                    if (!pendingMultiGate) {
+                        // First click - set control/first qubit
+                        setPendingMultiGate({ type: gateType, qubit, step });
+                        return;
+                    } else {
+                        // Second click - set target/second qubit
+                        if (pendingMultiGate.qubit === qubit) {
+                            // Same qubit, cancel
+                            setPendingMultiGate(null);
+                            return;
+                        }
+                        
+                        const newGate = {
+                            id: `gate-${nextGateId}`,
+                            type: gateType,
+                            step: Math.max(pendingMultiGate.step, step),
+                            targets: [pendingMultiGate.qubit, qubit].sort((a, b) => a - b)
+                        };
+                        
+                        // For CNOT, control is first dropped, target is second
+                        if (gateType === 'CNOT') {
+                            newGate.targets = [pendingMultiGate.qubit, qubit];
+                        }
+                        
+                        setGates(prev => [...prev, newGate]);
+                        setNextGateId(prev => prev + 1);
+                        setPendingMultiGate(null);
+                        setIsSimulated(false);
+                        return;
+                    }
+                }
+                
+                // Single qubit gate
+                const newGate = {
+                    id: `gate-${nextGateId}`,
+                    type: gateType,
+                    step,
+                    targets: [qubit],
+                    params: ['Rx', 'Ry', 'Rz'].includes(gateType) ? { theta: Math.PI / 2 } : undefined
+                };
+                
+                setGates(prev => [...prev, newGate]);
+                setNextGateId(prev => prev + 1);
+                setIsSimulated(false);
+            }, [nextGateId, pendingMultiGate]);
+
+            // Delete gate
+            const handleDeleteGate = useCallback((gateId) => {
+                setGates(prev => prev.filter(g => g.id !== gateId));
+                setSelectedGate(null);
+                setIsSimulated(false);
+            }, []);
+
+            // Update gate parameters
+            const handleUpdateGate = useCallback((gateId, params) => {
+                setGates(prev => prev.map(g => 
+                    g.id === gateId ? { ...g, params } : g
+                ));
+                setSelectedGate(null);
+                setIsSimulated(false);
+            }, []);
+
+            // Run full simulation
+            const runSimulation = useCallback(() => {
+                if (!simulator) return;
+                
+                simulator.reset();
+                setCurrentStep(null);
+                setStepMode(false);
+                
+                // Sort gates by step
+                const sortedGates = [...gates].sort((a, b) => a.step - b.step);
+                
+                // Apply all gates
+                for (const gate of sortedGates) {
+                    simulator.applyGate(gate.type, gate.targets, gate.params);
+                }
+                
+                setSimulationResult({
+                    state: simulator.getState().clone(),
+                    probabilities: simulator.getProbabilities(),
+                    blochVectors: simulator.getBlochVectors()
+                });
+                setIsSimulated(true);
+            }, [simulator, gates]);
+
+            // Step-by-step simulation
+            const stepSimulation = useCallback(() => {
+                if (!simulator) return;
+                
+                const sortedGates = [...gates].sort((a, b) => a.step - b.step);
+                const steps = [...new Set(sortedGates.map(g => g.step))].sort((a, b) => a - b);
+                
+                if (currentStep === null) {
+                    // Start fresh
+                    simulator.reset();
+                    setStepMode(true);
+                    
+                    if (steps.length === 0) {
+                        setSimulationResult({
+                            state: simulator.getState().clone(),
+                            probabilities: simulator.getProbabilities(),
+                            blochVectors: simulator.getBlochVectors()
+                        });
+                        setIsSimulated(true);
+                        return;
+                    }
+                    
+                    // Apply first step
+                    const firstStep = steps[0];
+                    const gatesAtStep = sortedGates.filter(g => g.step === firstStep);
+                    for (const gate of gatesAtStep) {
+                        simulator.applyGate(gate.type, gate.targets, gate.params);
+                    }
+                    
+                    setCurrentStep(firstStep);
+                } else {
+                    // Find next step
+                    const currentIdx = steps.indexOf(currentStep);
+                    if (currentIdx < steps.length - 1) {
+                        const nextStep = steps[currentIdx + 1];
+                        const gatesAtStep = sortedGates.filter(g => g.step === nextStep);
+                        for (const gate of gatesAtStep) {
+                            simulator.applyGate(gate.type, gate.targets, gate.params);
+                        }
+                        setCurrentStep(nextStep);
+                    } else {
+                        // Finished all steps
+                        setCurrentStep(null);
+                        setStepMode(false);
+                    }
+                }
+                
+                setSimulationResult({
+                    state: simulator.getState().clone(),
+                    probabilities: simulator.getProbabilities(),
+                    blochVectors: simulator.getBlochVectors()
+                });
+                setIsSimulated(true);
+            }, [simulator, gates, currentStep]);
+
+            // Reset circuit
+            const resetCircuit = useCallback(() => {
+                setGates([]);
+                setSelectedGate(null);
+                setIsSimulated(false);
+                setCurrentStep(null);
+                setStepMode(false);
+                if (simulator) simulator.reset();
+            }, [simulator]);
+
+            // Load example circuit
+            const loadExample = useCallback((exampleKey) => {
+                const example = EXAMPLE_CIRCUITS[exampleKey];
+                if (!example) return;
+                
+                setNumQubits(example.numQubits);
+                setGates(example.gates.map((g, idx) => ({
+                    ...g,
+                    id: `gate-${idx + 1}`
+                })));
+                setNextGateId(example.gates.length + 1);
+                setShowExamplesMenu(false);
+                setIsSimulated(false);
+                setCurrentStep(null);
+            }, []);
+
+            // Import circuit from JSON
+            const handleImport = useCallback((e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.numQubits && data.gates) {
+                            setNumQubits(Math.min(Math.max(data.numQubits, 1), 10));
+                            setGates(data.gates.map((g, idx) => ({
+                                ...g,
+                                id: `gate-${idx + 1}`
+                            })));
+                            setNextGateId(data.gates.length + 1);
+                            setIsSimulated(false);
+                        }
+                    } catch (err) {
+                        console.error('Failed to parse circuit file:', err);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            }, []);
+
+            // Add qubit
+            const addQubit = useCallback(() => {
+                if (numQubits < 10) {
+                    setNumQubits(prev => prev + 1);
+                    setIsSimulated(false);
+                }
+            }, [numQubits]);
+
+            // Remove qubit
+            const removeQubit = useCallback(() => {
+                if (numQubits > 1) {
+                    // Remove gates that use the removed qubit
+                    setGates(prev => prev.filter(g => 
+                        !g.targets.some(t => t >= numQubits - 1)
+                    ));
+                    setNumQubits(prev => prev - 1);
+                    setIsSimulated(false);
+                }
+            }, [numQubits]);
+
+            // Get selected gate object
+            const selectedGateObj = gates.find(g => g.id === selectedGate);
+
+            // Calculate total steps for step mode display
+            const totalSteps = [...new Set(gates.map(g => g.step))].length;
+
+            return (
+                <div id="root">
+                    {/* Header */}
+                    <header className="header">
+                        <div className="logo">
+                            <div className="logo-icon" style={{ color: 'var(--accent-blue)' }}>
+                                <Icons.Atom />
+                            </div>
+                            <div className="logo-text">
+                                Quantum <span>Composer</span>
+                            </div>
+                        </div>
+                        <div className="header-actions">
+                            <div className="dropdown">
+                                <button 
+                                    className="btn btn-secondary"
+                                    onClick={() => setShowExamplesMenu(!showExamplesMenu)}
+                                >
+                                    Examples <Icons.ChevronDown />
+                                </button>
+                                {showExamplesMenu && (
+                                    <div className="dropdown-menu">
+                                        {Object.entries(EXAMPLE_CIRCUITS).map(([key, circuit]) => (
+                                            <button
+                                                key={key}
+                                                className="dropdown-item"
+                                                onClick={() => loadExample(key)}
+                                            >
+                                                {circuit.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                                <Icons.Upload /> Import
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".json"
+                                style={{ display: 'none' }}
+                                onChange={handleImport}
+                            />
+                            <button className="btn btn-secondary" onClick={() => setShowExportModal(true)}>
+                                <Icons.Code /> Export
+                            </button>
+                            <button className="btn btn-success" onClick={runSimulation}>
+                                <Icons.Play /> Run
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <div className="main-container">
+                        {/* Gate Palette */}
+                        <GatePalette />
+
+                        {/* Circuit Editor */}
+                        <div className="editor-container">
+                            <div className="toolbar">
+                                <div className="toolbar-group">
+                                    <button 
+                                        className="toolbar-btn tooltip" 
+                                        data-tooltip="Add Qubit"
+                                        onClick={addQubit}
+                                        disabled={numQubits >= 10}
+                                    >
+                                        <Icons.Plus />
+                                    </button>
+                                    <button 
+                                        className="toolbar-btn tooltip" 
+                                        data-tooltip="Remove Qubit"
+                                        onClick={removeQubit}
+                                        disabled={numQubits <= 1}
+                                    >
+                                        <Icons.Minus />
+                                    </button>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                                        {numQubits} qubits
+                                    </span>
+                                </div>
+                                <div className="toolbar-group">
+                                    <button 
+                                        className="toolbar-btn tooltip" 
+                                        data-tooltip="Zoom Out"
+                                        onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}
+                                    >
+                                        <Icons.ZoomOut />
+                                    </button>
+                                    <span className="zoom-display">{Math.round(zoom * 100)}%</span>
+                                    <button 
+                                        className="toolbar-btn tooltip" 
+                                        data-tooltip="Zoom In"
+                                        onClick={() => setZoom(z => Math.min(2, z + 0.1))}
+                                    >
+                                        <Icons.ZoomIn />
+                                    </button>
+                                </div>
+                                <div className="toolbar-group">
+                                    <button 
+                                        className="toolbar-btn tooltip" 
+                                        data-tooltip="Step Forward"
+                                        onClick={stepSimulation}
+                                    >
+                                        <Icons.StepForward />
+                                    </button>
+                                    <button 
+                                        className="toolbar-btn tooltip" 
+                                        data-tooltip="Reset"
+                                        onClick={resetCircuit}
+                                    >
+                                        <Icons.Reset />
+                                    </button>
+                                </div>
+                                {pendingMultiGate && (
+                                    <div style={{ 
+                                        marginLeft: 'auto', 
+                                        padding: '4px 12px',
+                                        background: 'var(--accent-purple)',
+                                        borderRadius: '4px',
+                                        fontSize: '12px'
+                                    }}>
+                                        Click target qubit for {pendingMultiGate.type}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="circuit-canvas-container">
+                                <div className="circuit-canvas">
+                                    <CircuitGrid
+                                        numQubits={numQubits}
+                                        numSteps={numSteps}
+                                        gates={gates}
+                                        selectedGate={selectedGate}
+                                        onSelectGate={setSelectedGate}
+                                        onDropGate={handleDropGate}
+                                        onDeleteGate={handleDeleteGate}
+                                        zoom={zoom}
+                                        currentStep={stepMode ? currentStep : null}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Results Panel */}
+                        <ResultsPanel
+                            state={simulationResult?.state}
+                            probabilities={simulationResult?.probabilities}
+                            numQubits={numQubits}
+                            blochVectors={simulationResult?.blochVectors}
+                            isSimulated={isSimulated}
+                            currentStep={stepMode ? currentStep : null}
+                            totalSteps={totalSteps}
+                        />
+                    </div>
+
+                    {/* Keyboard Shortcuts Hint */}
+                    <div className="shortcuts-hint">
+                        <div className="shortcut">
+                            <kbd>Del</kbd> Delete gate
+                        </div>
+                        <div className="shortcut">
+                            <kbd>Esc</kbd> Deselect
+                        </div>
+                        <div className="shortcut">
+                            <kbd>Ctrl</kbd>+<kbd>R</kbd> Run
+                        </div>
+                    </div>
+
+                    {/* Modals */}
+                    {selectedGateObj && (
+                        <GateEditModal
+                            gate={selectedGateObj}
+                            onSave={(params) => handleUpdateGate(selectedGate, params)}
+                            onDelete={() => handleDeleteGate(selectedGate)}
+                            onClose={() => setSelectedGate(null)}
+                        />
+                    )}
+
+                    {showExportModal && (
+                        <ExportModal
+                            circuit={gates}
+                            numQubits={numQubits}
+                            onClose={() => setShowExportModal(false)}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<QuantumComposer />, document.getElementById('root'));
+    </script>
+</body>
+</html>
