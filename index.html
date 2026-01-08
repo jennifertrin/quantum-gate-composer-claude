@@ -888,6 +888,42 @@
             opacity: 1;
         }
 
+        /* Global tooltip container */
+        .gate-tooltip-container {
+            position: fixed;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 400;
+            font-family: 'IBM Plex Sans', sans-serif;
+            line-height: 1.5;
+            color: var(--text-primary);
+            width: 280px;
+            text-align: left;
+            z-index: 10000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .gate-tooltip-container.visible {
+            opacity: 1;
+        }
+
+        .gate-tooltip-title {
+            font-weight: 600;
+            color: var(--accent-blue);
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .gate-tooltip-description {
+            color: var(--text-secondary);
+        }
+
         /* Empty state */
         .empty-state {
             text-align: center;
@@ -1532,9 +1568,82 @@
         };
 
         /**
+         * Gate descriptions for tooltips
+         */
+        const GATE_INFO = {
+            H: { name: 'Hadamard Gate', desc: 'Creates superposition. Maps |0⟩ to |+⟩ and |1⟩ to |−⟩. Essential for quantum algorithms.' },
+            X: { name: 'Pauli-X Gate', desc: 'Quantum NOT gate. Flips |0⟩ ↔ |1⟩, equivalent to a classical NOT operation.' },
+            Y: { name: 'Pauli-Y Gate', desc: 'Rotates by π around Y-axis. Flips the qubit state with an added phase.' },
+            Z: { name: 'Pauli-Z Gate', desc: 'Phase flip gate. Leaves |0⟩ unchanged, adds π phase to |1⟩ state.' },
+            S: { name: 'S Gate (Phase)', desc: 'Adds π/2 phase to |1⟩. Also called √Z since S² = Z.' },
+            T: { name: 'T Gate (π/8)', desc: 'Adds π/4 phase to |1⟩. Also called √S since T² = S. Key for fault-tolerance.' },
+            Rx: { name: 'Rotation-X', desc: 'Rotates qubit around the X-axis by angle θ. Click to edit the rotation angle.' },
+            Ry: { name: 'Rotation-Y', desc: 'Rotates qubit around the Y-axis by angle θ. Click to edit the rotation angle.' },
+            Rz: { name: 'Rotation-Z', desc: 'Rotates qubit around the Z-axis by angle θ. Click to edit the rotation angle.' },
+            CNOT: { name: 'Controlled-NOT', desc: 'Two-qubit gate. Flips target qubit if control qubit is |1⟩. Creates entanglement.' },
+            CZ: { name: 'Controlled-Z', desc: 'Two-qubit gate. Adds π phase only when both qubits are |1⟩. Symmetric operation.' },
+            SWAP: { name: 'SWAP Gate', desc: 'Exchanges the quantum states of two qubits. Equivalent to three CNOTs.' },
+            MEASURE: { name: 'Measurement', desc: 'Measures the qubit, collapsing it to |0⟩ or |1⟩ with probabilities |α|² and |β|².' }
+        };
+
+        // For backward compatibility
+        const GATE_DESCRIPTIONS = Object.fromEntries(
+            Object.entries(GATE_INFO).map(([k, v]) => [k, `${v.name}: ${v.desc}`])
+        );
+
+        /**
+         * Tooltip context for global tooltip management
+         */
+        const TooltipContext = React.createContext({
+            showTooltip: () => {},
+            hideTooltip: () => {}
+        });
+
+        /**
+         * Global tooltip component
+         */
+        function GateTooltip({ tooltip }) {
+            if (!tooltip.visible) return null;
+            
+            const gateInfo = GATE_INFO[tooltip.gateType];
+            if (!gateInfo) return null;
+
+            // Calculate position to keep tooltip in viewport
+            let left = tooltip.x + 15;
+            let top = tooltip.y - 10;
+            const tooltipWidth = 280;
+            const tooltipHeight = 80;
+            
+            // Adjust if tooltip would go off right edge
+            if (left + tooltipWidth > window.innerWidth - 20) {
+                left = tooltip.x - tooltipWidth - 15;
+            }
+            
+            // Adjust if tooltip would go off bottom edge
+            if (top + tooltipHeight > window.innerHeight - 20) {
+                top = window.innerHeight - tooltipHeight - 20;
+            }
+            
+            // Adjust if tooltip would go off top edge
+            if (top < 20) {
+                top = 20;
+            }
+
+            return (
+                <div 
+                    className={`gate-tooltip-container ${tooltip.visible ? 'visible' : ''}`}
+                    style={{ left: `${left}px`, top: `${top}px` }}
+                >
+                    <div className="gate-tooltip-title">{gateInfo.name}</div>
+                    <div className="gate-tooltip-description">{gateInfo.desc}</div>
+                </div>
+            );
+        }
+
+        /**
          * Gate palette component - shows available gates for drag-and-drop
          */
-        function GatePalette({ onDragStart }) {
+        function GatePalette({ onDragStart, onShowTooltip, onHideTooltip }) {
             const singleQubitGates = [
                 { type: 'H', label: 'Hadamard' },
                 { type: 'X', label: 'Pauli-X' },
@@ -1561,6 +1670,18 @@
                 e.dataTransfer.setData('gateType', gateType);
                 e.dataTransfer.effectAllowed = 'copy';
                 onDragStart && onDragStart(gateType);
+                onHideTooltip && onHideTooltip();
+            };
+
+            const handleMouseEnter = (e, gateType) => {
+                if (onShowTooltip) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onShowTooltip(gateType, rect.right + 10, rect.top);
+                }
+            };
+
+            const handleMouseLeave = () => {
+                onHideTooltip && onHideTooltip();
             };
 
             return (
@@ -1574,6 +1695,8 @@
                                     className="gate-item"
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, gate.type)}
+                                    onMouseEnter={(e) => handleMouseEnter(e, gate.type)}
+                                    onMouseLeave={handleMouseLeave}
                                     style={{ color: `var(--gate-${gate.type.toLowerCase()})` }}
                                 >
                                     {gate.type}
@@ -1590,6 +1713,8 @@
                                     className="gate-item"
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, gate.type)}
+                                    onMouseEnter={(e) => handleMouseEnter(e, gate.type)}
+                                    onMouseLeave={handleMouseLeave}
                                     style={{ color: `var(--gate-${gate.type.toLowerCase()})` }}
                                 >
                                     {gate.type}
@@ -1606,6 +1731,8 @@
                                     className="gate-item wide"
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, gate.type)}
+                                    onMouseEnter={(e) => handleMouseEnter(e, gate.type)}
+                                    onMouseLeave={handleMouseLeave}
                                     style={{ color: `var(--gate-measure)` }}
                                 >
                                     📊 {gate.type}
@@ -1630,7 +1757,7 @@
         /**
          * Single gate display component
          */
-        function GateDisplay({ gate, isSelected, onClick, qubitOffset = 0 }) {
+        function GateDisplay({ gate, isSelected, onClick, qubitOffset = 0, onShowTooltip, onHideTooltip }) {
             const gateClass = `gate gate-${gate.type.toLowerCase()} ${isSelected ? 'selected' : ''}`;
             const isDraggingRef = useRef(false);
             
@@ -1641,6 +1768,7 @@
                 e.dataTransfer.setData('gateType', gate.type);
                 e.dataTransfer.setData('isMove', 'true');
                 e.dataTransfer.effectAllowed = 'move';
+                onHideTooltip && onHideTooltip();
             };
 
             const handleDragEnd = (e) => {
@@ -1656,7 +1784,19 @@
                     e.stopPropagation();
                     return;
                 }
+                onHideTooltip && onHideTooltip();
                 onClick && onClick(e);
+            };
+
+            const handleMouseEnter = (e) => {
+                if (onShowTooltip && !isDraggingRef.current) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onShowTooltip(gate.type, rect.right + 10, rect.top);
+                }
+            };
+
+            const handleMouseLeave = () => {
+                onHideTooltip && onHideTooltip();
             };
             
             if (gate.type === 'CNOT' || gate.type === 'CZ') {
@@ -1672,6 +1812,8 @@
                             draggable="true"
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
                             style={{ position: 'relative', cursor: 'grab' }}
                         >
                             <div 
@@ -1702,6 +1844,8 @@
                                 draggable="true"
                                 onDragStart={handleDragStart}
                                 onDragEnd={handleDragEnd}
+                                onMouseEnter={handleMouseEnter}
+                                onMouseLeave={handleMouseLeave}
                                 style={{ background: 'var(--gate-cz)', cursor: 'grab' }}
                             />
                         );
@@ -1713,6 +1857,8 @@
                             draggable="true"
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
                             style={{ cursor: 'grab' }}
                         />
                     );
@@ -1732,6 +1878,8 @@
                             draggable="true"
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
                             style={{ position: 'relative', cursor: 'grab' }}
                         >
                             <div 
@@ -1753,6 +1901,8 @@
                             draggable="true"
                             onDragStart={handleDragStart}
                             onDragEnd={handleDragEnd}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
                             style={{ cursor: 'grab' }}
                         />
                     );
@@ -1768,6 +1918,8 @@
                         draggable="true"
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
                     >
                         📊
                     </div>
@@ -1784,6 +1936,8 @@
                     draggable="true"
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
                 >
                     {gate.type}
                     {hasAngle && gate.params?.theta !== undefined && (
@@ -1814,6 +1968,8 @@
             onMoveGate,
             onDeleteGate,
             onSlotClick,
+            onShowTooltip,
+            onHideTooltip,
             pendingMultiGate,
             zoom,
             currentStep
@@ -1916,6 +2072,8 @@
                                                 isSelected={selectedGate === gate.id}
                                                 onClick={() => onSelectGate(gate.id)}
                                                 qubitOffset={qubitIndex}
+                                                onShowTooltip={onShowTooltip}
+                                                onHideTooltip={onHideTooltip}
                                             />
                                         )}
                                     </div>
@@ -2324,6 +2482,9 @@
             const [showExamplesMenu, setShowExamplesMenu] = useState(false);
             const [pendingMultiGate, setPendingMultiGate] = useState(null);
             
+            // Tooltip state
+            const [tooltip, setTooltip] = useState({ visible: false, gateType: null, x: 0, y: 0 });
+            
             // Simulation state
             const [simulator, setSimulator] = useState(null);
             const [simulationResult, setSimulationResult] = useState(null);
@@ -2333,6 +2494,15 @@
 
             // File input ref
             const fileInputRef = useRef(null);
+
+            // Tooltip handlers
+            const showTooltip = useCallback((gateType, x, y) => {
+                setTooltip({ visible: true, gateType, x, y });
+            }, []);
+
+            const hideTooltip = useCallback(() => {
+                setTooltip(prev => ({ ...prev, visible: false }));
+            }, []);
 
             // Initialize simulator
             useEffect(() => {
@@ -2675,7 +2845,10 @@
                     {/* Main Content */}
                     <div className="main-container">
                         {/* Gate Palette */}
-                        <GatePalette />
+                        <GatePalette 
+                            onShowTooltip={showTooltip}
+                            onHideTooltip={hideTooltip}
+                        />
 
                         {/* Circuit Editor */}
                         <div className="editor-container">
@@ -2760,6 +2933,8 @@
                                         onMoveGate={handleMoveGate}
                                         onDeleteGate={handleDeleteGate}
                                         onSlotClick={handleSlotClick}
+                                        onShowTooltip={showTooltip}
+                                        onHideTooltip={hideTooltip}
                                         pendingMultiGate={pendingMultiGate}
                                         zoom={zoom}
                                         currentStep={stepMode ? currentStep : null}
@@ -2810,6 +2985,9 @@
                             onClose={() => setShowExportModal(false)}
                         />
                     )}
+
+                    {/* Gate Tooltip */}
+                    <GateTooltip tooltip={tooltip} />
                 </div>
             );
         }
