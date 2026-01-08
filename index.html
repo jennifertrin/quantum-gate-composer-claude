@@ -359,6 +359,30 @@
             opacity: 0.5;
         }
 
+        .gate-slot.pending-target {
+            cursor: pointer;
+        }
+
+        .gate-slot.pending-target::before {
+            content: '';
+            position: absolute;
+            inset: 10px;
+            border: 2px dashed var(--gate-cnot);
+            border-radius: 6px;
+            opacity: 0.6;
+            animation: pulse-border 1s ease-in-out infinite;
+        }
+
+        .gate-slot.pending-source {
+            background: rgba(251, 191, 36, 0.2);
+            border-radius: 8px;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+
         /* Gate Display */
         .gate {
             width: 44px;
@@ -1709,6 +1733,8 @@
             onSelectGate, 
             onDropGate,
             onDeleteGate,
+            onSlotClick,
+            pendingMultiGate,
             zoom,
             currentStep
         }) {
@@ -1731,6 +1757,14 @@
                     onDropGate(gateType, qubit, step);
                 }
                 setDragOverSlot(null);
+            };
+
+            const handleSlotClick = (e, qubit, step, hasGate) => {
+                // If there's a pending multi-qubit gate, complete it
+                if (pendingMultiGate) {
+                    e.stopPropagation();
+                    onSlotClick(qubit, step);
+                }
             };
 
             const getGateAtPosition = (qubit, step) => {
@@ -1757,19 +1791,37 @@
                                 const isDragOver = dragOverSlot?.qubit === qubitIndex && 
                                                    dragOverSlot?.step === stepIndex;
                                 const isCurrentStep = currentStep !== null && stepIndex === currentStep;
+                                const isPendingSource = pendingMultiGate && 
+                                                        pendingMultiGate.qubit === qubitIndex &&
+                                                        pendingMultiGate.step === stepIndex;
+                                const isPendingTarget = pendingMultiGate && 
+                                                        pendingMultiGate.qubit !== qubitIndex;
                                 
                                 return (
                                     <div
                                         key={stepIndex}
-                                        className={`gate-slot ${isDragOver ? 'drop-target' : ''}`}
+                                        className={`gate-slot ${isDragOver ? 'drop-target' : ''} ${isPendingTarget ? 'pending-target' : ''} ${isPendingSource ? 'pending-source' : ''}`}
                                         style={{
-                                            background: isCurrentStep ? 'rgba(168, 85, 247, 0.15)' : undefined,
-                                            borderLeft: isCurrentStep ? '2px solid var(--accent-purple)' : undefined
+                                            background: isCurrentStep ? 'rgba(168, 85, 247, 0.15)' : 
+                                                       isPendingSource ? 'rgba(251, 191, 36, 0.25)' :
+                                                       isPendingTarget ? 'rgba(251, 191, 36, 0.08)' : undefined,
+                                            borderLeft: isCurrentStep ? '2px solid var(--accent-purple)' : undefined,
+                                            cursor: isPendingTarget ? 'pointer' : undefined
                                         }}
                                         onDragOver={(e) => handleDragOver(e, qubitIndex, stepIndex)}
                                         onDragLeave={handleDragLeave}
                                         onDrop={(e) => handleDrop(e, qubitIndex, stepIndex)}
+                                        onClick={(e) => handleSlotClick(e, qubitIndex, stepIndex, !!gate)}
                                     >
+                                        {isPendingSource && !gate && (
+                                            <div style={{
+                                                width: '14px',
+                                                height: '14px',
+                                                background: 'var(--gate-cnot)',
+                                                borderRadius: '50%',
+                                                border: '2px solid var(--bg-primary)'
+                                            }} />
+                                        )}
                                         {gate && (
                                             <GateDisplay
                                                 gate={gate}
@@ -2219,41 +2271,47 @@
                 return () => window.removeEventListener('keydown', handleKeyDown);
             }, [selectedGate, gates]);
 
+            // Handle slot click (for completing multi-qubit gates)
+            const handleSlotClick = useCallback((qubit, step) => {
+                if (!pendingMultiGate) return;
+                
+                if (pendingMultiGate.qubit === qubit) {
+                    // Same qubit, cancel
+                    setPendingMultiGate(null);
+                    return;
+                }
+                
+                const gateType = pendingMultiGate.type;
+                const newGate = {
+                    id: `gate-${nextGateId}`,
+                    type: gateType,
+                    step: Math.max(pendingMultiGate.step, step),
+                    targets: gateType === 'CNOT' 
+                        ? [pendingMultiGate.qubit, qubit]  // CNOT: control first, target second
+                        : [Math.min(pendingMultiGate.qubit, qubit), Math.max(pendingMultiGate.qubit, qubit)]
+                };
+                
+                setGates(prev => [...prev, newGate]);
+                setNextGateId(prev => prev + 1);
+                setPendingMultiGate(null);
+                setIsSimulated(false);
+            }, [nextGateId, pendingMultiGate]);
+
             // Add gate to circuit
             const handleDropGate = useCallback((gateType, qubit, step) => {
                 const multiQubitGates = ['CNOT', 'CZ', 'SWAP'];
                 
+                // If there's a pending multi-qubit gate and we're dropping on a different qubit,
+                // complete the multi-qubit gate
+                if (pendingMultiGate && pendingMultiGate.qubit !== qubit) {
+                    handleSlotClick(qubit, step);
+                    return;
+                }
+                
                 if (multiQubitGates.includes(gateType)) {
-                    if (!pendingMultiGate) {
-                        // First click - set control/first qubit
-                        setPendingMultiGate({ type: gateType, qubit, step });
-                        return;
-                    } else {
-                        // Second click - set target/second qubit
-                        if (pendingMultiGate.qubit === qubit) {
-                            // Same qubit, cancel
-                            setPendingMultiGate(null);
-                            return;
-                        }
-                        
-                        const newGate = {
-                            id: `gate-${nextGateId}`,
-                            type: gateType,
-                            step: Math.max(pendingMultiGate.step, step),
-                            targets: [pendingMultiGate.qubit, qubit].sort((a, b) => a - b)
-                        };
-                        
-                        // For CNOT, control is first dropped, target is second
-                        if (gateType === 'CNOT') {
-                            newGate.targets = [pendingMultiGate.qubit, qubit];
-                        }
-                        
-                        setGates(prev => [...prev, newGate]);
-                        setNextGateId(prev => prev + 1);
-                        setPendingMultiGate(null);
-                        setIsSimulated(false);
-                        return;
-                    }
+                    // First drop - set control/first qubit
+                    setPendingMultiGate({ type: gateType, qubit, step });
+                    return;
                 }
                 
                 // Single qubit gate
@@ -2268,7 +2326,7 @@
                 setGates(prev => [...prev, newGate]);
                 setNextGateId(prev => prev + 1);
                 setIsSimulated(false);
-            }, [nextGateId, pendingMultiGate]);
+            }, [nextGateId, pendingMultiGate, handleSlotClick]);
 
             // Delete gate
             const handleDeleteGate = useCallback((gateId) => {
@@ -2562,11 +2620,13 @@
                                     <div style={{ 
                                         marginLeft: 'auto', 
                                         padding: '4px 12px',
-                                        background: 'var(--accent-purple)',
+                                        background: 'var(--gate-cnot)',
+                                        color: 'var(--bg-primary)',
                                         borderRadius: '4px',
-                                        fontSize: '12px'
+                                        fontSize: '12px',
+                                        fontWeight: '500'
                                     }}>
-                                        Click target qubit for {pendingMultiGate.type}
+                                        🎯 Now click on target qubit for {pendingMultiGate.type} (q{pendingMultiGate.qubit} → ?)
                                     </div>
                                 )}
                             </div>
@@ -2580,6 +2640,8 @@
                                         onSelectGate={setSelectedGate}
                                         onDropGate={handleDropGate}
                                         onDeleteGate={handleDeleteGate}
+                                        onSlotClick={handleSlotClick}
+                                        pendingMultiGate={pendingMultiGate}
                                         zoom={zoom}
                                         currentStep={stepMode ? currentStep : null}
                                     />
