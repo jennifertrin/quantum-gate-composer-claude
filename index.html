@@ -394,7 +394,7 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             font-weight: 600;
-            cursor: pointer;
+            cursor: grab;
             transition: all 0.15s ease;
             position: relative;
             z-index: 2;
@@ -403,6 +403,10 @@
         .gate:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .gate:active {
+            cursor: grabbing;
         }
 
         .gate.selected {
@@ -427,6 +431,11 @@
             background: var(--gate-cnot);
             border-radius: 50%;
             border: 2px solid var(--bg-primary);
+            cursor: grab;
+        }
+
+        .gate-control:active {
+            cursor: grabbing;
         }
 
         .gate-target {
@@ -1608,9 +1617,10 @@
                         <div className="sidebar-title">Tips</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                             <p>• Drag gates onto the circuit grid</p>
+                            <p>• Drag placed gates to reposition them</p>
                             <p>• Click a gate to edit or delete</p>
-                            <p>• Multi-qubit gates: drop on control qubit first</p>
-                            <p>• Use keyboard: Del to delete, Esc to deselect</p>
+                            <p>• Multi-qubit gates: drop first, then click target</p>
+                            <p>• Use keyboard: Del to delete, Esc to cancel</p>
                         </div>
                     </div>
                 </div>
@@ -1622,6 +1632,32 @@
          */
         function GateDisplay({ gate, isSelected, onClick, qubitOffset = 0 }) {
             const gateClass = `gate gate-${gate.type.toLowerCase()} ${isSelected ? 'selected' : ''}`;
+            const isDraggingRef = useRef(false);
+            
+            const handleDragStart = (e) => {
+                isDraggingRef.current = true;
+                // Set data to indicate this is an existing gate being moved
+                e.dataTransfer.setData('gateId', gate.id);
+                e.dataTransfer.setData('gateType', gate.type);
+                e.dataTransfer.setData('isMove', 'true');
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragEnd = (e) => {
+                // Reset after a short delay to avoid click firing
+                setTimeout(() => {
+                    isDraggingRef.current = false;
+                }, 100);
+            };
+
+            const handleClick = (e) => {
+                // Don't trigger click if we just finished dragging
+                if (isDraggingRef.current) {
+                    e.stopPropagation();
+                    return;
+                }
+                onClick && onClick(e);
+            };
             
             if (gate.type === 'CNOT' || gate.type === 'CZ') {
                 const controlQubit = gate.targets[0];
@@ -1631,7 +1667,13 @@
                 
                 if (qubitOffset === controlQubit) {
                     return (
-                        <div onClick={onClick} style={{ position: 'relative' }}>
+                        <div 
+                            onClick={handleClick} 
+                            draggable="true"
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            style={{ position: 'relative', cursor: 'grab' }}
+                        >
                             <div 
                                 className="multi-gate-line" 
                                 style={{
@@ -1645,8 +1687,8 @@
                                 className={`gate-control ${isSelected ? 'selected' : ''}`}
                                 style={{ 
                                     background: gate.type === 'CZ' ? 'var(--gate-cz)' : 'var(--gate-cnot)',
-                                    width: gate.type === 'CZ' ? '14px' : '14px',
-                                    height: gate.type === 'CZ' ? '14px' : '14px'
+                                    width: '14px',
+                                    height: '14px'
                                 }}
                             />
                         </div>
@@ -1656,13 +1698,23 @@
                         return (
                             <div 
                                 className={`gate-control ${isSelected ? 'selected' : ''}`}
-                                onClick={onClick}
-                                style={{ background: 'var(--gate-cz)' }}
+                                onClick={handleClick}
+                                draggable="true"
+                                onDragStart={handleDragStart}
+                                onDragEnd={handleDragEnd}
+                                style={{ background: 'var(--gate-cz)', cursor: 'grab' }}
                             />
                         );
                     }
                     return (
-                        <div className={`gate-target ${isSelected ? 'selected' : ''}`} onClick={onClick} />
+                        <div 
+                            className={`gate-target ${isSelected ? 'selected' : ''}`} 
+                            onClick={handleClick}
+                            draggable="true"
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            style={{ cursor: 'grab' }}
+                        />
                     );
                 }
                 return null;
@@ -1675,7 +1727,13 @@
                 
                 if (qubitOffset === qubit1) {
                     return (
-                        <div onClick={onClick} style={{ position: 'relative' }}>
+                        <div 
+                            onClick={handleClick} 
+                            draggable="true"
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            style={{ position: 'relative', cursor: 'grab' }}
+                        >
                             <div 
                                 className="multi-gate-line" 
                                 style={{
@@ -1688,14 +1746,29 @@
                         </div>
                     );
                 } else if (qubitOffset === qubit2) {
-                    return <div className={`gate-swap-symbol ${isSelected ? 'selected' : ''}`} onClick={onClick} />;
+                    return (
+                        <div 
+                            className={`gate-swap-symbol ${isSelected ? 'selected' : ''}`} 
+                            onClick={handleClick}
+                            draggable="true"
+                            onDragStart={handleDragStart}
+                            onDragEnd={handleDragEnd}
+                            style={{ cursor: 'grab' }}
+                        />
+                    );
                 }
                 return null;
             }
             
             if (gate.type === 'MEASURE') {
                 return (
-                    <div className={gateClass} onClick={onClick}>
+                    <div 
+                        className={gateClass} 
+                        onClick={handleClick}
+                        draggable="true"
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                    >
                         📊
                     </div>
                 );
@@ -1705,7 +1778,13 @@
             const hasAngle = ['Rx', 'Ry', 'Rz'].includes(gate.type);
             
             return (
-                <div className={gateClass} onClick={onClick}>
+                <div 
+                    className={gateClass} 
+                    onClick={handleClick}
+                    draggable="true"
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                >
                     {gate.type}
                     {hasAngle && gate.params?.theta !== undefined && (
                         <div style={{ 
@@ -1732,6 +1811,7 @@
             selectedGate, 
             onSelectGate, 
             onDropGate,
+            onMoveGate,
             onDeleteGate,
             onSlotClick,
             pendingMultiGate,
@@ -1742,7 +1822,8 @@
             
             const handleDragOver = (e, qubit, step) => {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+                const isMove = e.dataTransfer.types.includes('gateid');
+                e.dataTransfer.dropEffect = isMove ? 'move' : 'copy';
                 setDragOverSlot({ qubit, step });
             };
 
@@ -1752,8 +1833,15 @@
 
             const handleDrop = (e, qubit, step) => {
                 e.preventDefault();
+                const gateId = e.dataTransfer.getData('gateId');
                 const gateType = e.dataTransfer.getData('gateType');
-                if (gateType) {
+                const isMove = e.dataTransfer.getData('isMove') === 'true';
+                
+                if (isMove && gateId) {
+                    // Moving an existing gate
+                    onMoveGate(gateId, qubit, step);
+                } else if (gateType) {
+                    // Adding a new gate from palette
                     onDropGate(gateType, qubit, step);
                 }
                 setDragOverSlot(null);
@@ -2301,15 +2389,21 @@
             const handleDropGate = useCallback((gateType, qubit, step) => {
                 const multiQubitGates = ['CNOT', 'CZ', 'SWAP'];
                 
-                // If there's a pending multi-qubit gate and we're dropping on a different qubit,
-                // complete the multi-qubit gate
-                if (pendingMultiGate && pendingMultiGate.qubit !== qubit) {
+                // If there's a pending multi-qubit gate and user drops the SAME gate type,
+                // complete the multi-qubit gate (second drop completes it)
+                if (pendingMultiGate && pendingMultiGate.type === gateType && pendingMultiGate.qubit !== qubit) {
                     handleSlotClick(qubit, step);
                     return;
                 }
                 
+                // If user drops a DIFFERENT gate, cancel the pending multi-qubit gate
+                // and place the new gate instead
+                if (pendingMultiGate && pendingMultiGate.type !== gateType) {
+                    setPendingMultiGate(null);
+                }
+                
                 if (multiQubitGates.includes(gateType)) {
-                    // First drop - set control/first qubit
+                    // First drop - set first qubit
                     setPendingMultiGate({ type: gateType, qubit, step });
                     return;
                 }
@@ -2343,6 +2437,30 @@
                 setSelectedGate(null);
                 setIsSimulated(false);
             }, []);
+
+            // Move gate to a new position
+            const handleMoveGate = useCallback((gateId, newQubit, newStep) => {
+                setGates(prev => prev.map(g => {
+                    if (g.id !== gateId) return g;
+                    
+                    // For single-qubit gates, just update the position
+                    if (g.targets.length === 1) {
+                        return { ...g, step: newStep, targets: [newQubit] };
+                    }
+                    
+                    // For multi-qubit gates, calculate the offset and move both qubits
+                    const qubitOffset = newQubit - g.targets[0];
+                    const newTargets = g.targets.map(t => t + qubitOffset);
+                    
+                    // Make sure the new targets are within bounds
+                    if (newTargets.some(t => t < 0 || t >= numQubits)) {
+                        return g; // Can't move, out of bounds
+                    }
+                    
+                    return { ...g, step: newStep, targets: newTargets };
+                }));
+                setIsSimulated(false);
+            }, [numQubits]);
 
             // Run full simulation
             const runSimulation = useCallback(() => {
@@ -2639,6 +2757,7 @@
                                         selectedGate={selectedGate}
                                         onSelectGate={setSelectedGate}
                                         onDropGate={handleDropGate}
+                                        onMoveGate={handleMoveGate}
                                         onDeleteGate={handleDeleteGate}
                                         onSlotClick={handleSlotClick}
                                         pendingMultiGate={pendingMultiGate}
